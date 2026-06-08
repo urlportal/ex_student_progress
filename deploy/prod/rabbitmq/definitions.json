@@ -1,0 +1,86 @@
+{
+  "users": [
+    {
+      "name": "guest",
+      "password_hash": "yNxVlIyqSs3/Q7p1Mxir0OwJMm8/KrATq3pEiF9Ym0fqTVfZ",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "administrator"
+    }
+  ],
+  "vhosts": [{"name": "/"}],
+  "permissions": [
+    {
+      "user": "guest",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "scoring_direct",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "cache_invalidation_fanout",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "events_topic",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {"name": "score_aggregation", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    {"name": "cache_invalidation", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    {"name": "event_processing", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    {"name": "cache_invalidated_course", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}}
+  ],
+  "bindings": [
+    {
+      "source": "scoring_direct",
+      "vhost": "/",
+      "destination": "score_aggregation",
+      "destination_type": "queue",
+      "routing_key": "score_aggregation",
+      "arguments": {}
+    },
+    {
+      "source": "cache_invalidation_fanout",
+      "vhost": "/",
+      "destination": "cache_invalidation",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    },
+    {
+      "source": "events_topic",
+      "vhost": "/",
+      "destination": "event_processing",
+      "destination_type": "queue",
+      "routing_key": "#",
+      "arguments": {}
+    },
+    {
+      "source": "events_topic",
+      "vhost": "/",
+      "destination": "cache_invalidated_course",
+      "destination_type": "queue",
+      "routing_key": "cache.invalidated.course",
+      "arguments": {}
+    }
+  ]
+}

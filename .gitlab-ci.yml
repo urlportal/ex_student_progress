@@ -1,0 +1,71 @@
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
+stages:
+  - test
+  - deploy
+  - rollback
+
+.detect_slots: &detect_slots |
+  if docker ps -q -f "name=${APP_NAME}-blue-nginx" | grep -q .; then
+    export CURRENT=green
+    export PREV=blue
+  else
+    export CURRENT=blue
+    export PREV=green
+  fi
+  echo "CURRENT=$CURRENT" > slots.env
+  echo "PREV=$PREV" >> slots.env
+
+.init_external_entities: &init_external_entities |
+  docker volume inspect "${VOLUME_NAME_COMPOSER_CACHE}" >/dev/null 2>&1 || docker volume create "${VOLUME_NAME_COMPOSER_CACHE}"
+  docker volume inspect "${VOLUME_NAME_POSTGRES_DATA}" >/dev/null 2>&1 || docker volume create "${VOLUME_NAME_POSTGRES_DATA}"
+  docker network inspect "${NETWORK_NAME_INTERNAL}" >/dev/null 2>&1 || docker network create "${NETWORK_NAME_INTERNAL}"
+#  docker volume inspect "${VOLUME_NAME_ELASTICSEARCH_DATA}" >/dev/null 2>&1 || docker volume create "${VOLUME_NAME_ELASTICSEARCH_DATA}"
+
+tests:
+  tags:
+    - main_runner
+  stage: test
+  script:
+    - docker rm -f "${APP_NAME}-test-app" "${APP_NAME}-test-postgres" 2>/dev/null || true
+    - sudo rm -rf $DEPLOY_DIR/releases/test
+    - *init_external_entities
+    - sudo git clone "${CI_REPOSITORY_URL}" $DEPLOY_DIR/releases/test
+    - bash $DEPLOY_DIR/releases/test/deploy/prod/scripts/test.sh
+  only:
+    - main
+
+deploy:
+  tags:
+    - main_runner
+  stage: deploy
+  # resource_group для блокировки параллельных запусков (значение любое)
+  resource_group: production_deploy
+  interruptible: true
+  script:
+    - *detect_slots
+    - sudo rm -rf $DEPLOY_DIR/releases/$CURRENT
+    - *init_external_entities
+    - sudo git clone "${CI_REPOSITORY_URL}" $DEPLOY_DIR/releases/$CURRENT
+    - bash $DEPLOY_DIR/releases/$CURRENT/deploy/prod/scripts/deploy.sh
+  artifacts:
+    # Файл slots.env удалится из Gitlab через 2 дня, заблокируя rollback
+    expire_in: 2 days
+    reports:
+      dotenv: slots.env
+  only:
+    - main
+
+rollback:
+  tags:
+    - main_runner
+  stage: rollback
+  # resource_group для блокировки параллельных запусков (значение любое)
+  resource_group: production_deploy
+  script:
+    - bash $DEPLOY_DIR/releases/$CURRENT/deploy/prod/scripts/rollback.sh
+  when: manual
+  only:
+    - main

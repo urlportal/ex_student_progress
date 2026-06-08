@@ -1,0 +1,9 @@
+framework:
+    messenger:
+        transports:
+            async_score_aggregation:
+                dsn: 'sync://'
+            async_cache:
+                dsn: 'sync://'
+            async_events:
+                dsn: 'sync://'

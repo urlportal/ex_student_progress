@@ -1,0 +1,55 @@
+monolog:
+    channels:
+        - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - app
+
+    handlers:
+        # Группа: все логи кроме doctrine и event пишутся помимо Elasticsearch ещё и в stderr на случай отключения первого
+        main:
+            type: group
+#            members: [elasticsearch, stderr]
+            members: [stderr]
+            channels: ['!doctrine', '!event']
+            level: warning
+
+#        elasticsearch:
+#            type: service
+#            id: Symfony\Bridge\Monolog\Handler\ElasticsearchLogstashHandler
+
+        stderr:
+            type: stream
+            path: 'php://stderr'
+            formatter: monolog.formatter.json
+            level: debug
+
+when@dev:
+    monolog:
+        handlers:
+            main:
+                level: debug
+            console:
+                type: console
+                process_psr_3_messages: false
+                channels: ['!event', '!doctrine', '!console']
+
+when@test:
+    monolog:
+        handlers:
+            main:
+                type: fingers_crossed
+                action_level: error
+                handler: nested
+                excluded_http_codes: [404, 405]
+                channels: ['!event']
+            nested:
+                type: stream
+                path: '%kernel.logs_dir%/%kernel.environment%.log'
+                level: debug
+            stderr:
+                level: critical
+
+when@prod:
+    monolog:
+        handlers:
+            main:
+                level: warning

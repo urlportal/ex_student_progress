@@ -1,0 +1,89 @@
+security:
+    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
+    password_hashers:
+        App\Domain\Entity\User:
+            algorithm: bcrypt
+
+    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
+    providers:
+        # used to reload user from session & other features (e.g. switch_user)
+        users_in_database:
+            entity:
+                class: App\Domain\Entity\User
+                property: email
+
+    role_hierarchy:
+        ROLE_ADMIN:   [ROLE_TEACHER]
+        ROLE_TEACHER: [ROLE_STUDENT]
+        ROLE_STUDENT: [ROLE_USER]
+
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+        main:
+            lazy: true
+            stateless: true
+            provider: users_in_database
+            entry_point: App\Infrastructure\Security\EntryPoint\JsonAuthenticationEntryPoint
+            access_denied_handler: App\Infrastructure\Security\Handler\JsonAccessDeniedHandler
+            json_login:
+                check_path: /api/auth/token
+                username_path: email
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+            jwt: ~
+
+            # https://symfony.com/doc/current/security/impersonating_user.html
+            # switch_user: true
+
+    # Easy way to control access for large sections of your site
+    # Note: Only the *first* access control that matches will be used
+    access_control:
+        - { path: ^/healthcheck, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/token, roles: PUBLIC_ACCESS }
+        - { path: ^/api/v1/users$, roles: ROLE_TEACHER, methods: [GET] }  # list — admin и teacher
+        - { path: ^/api/v1/users$, roles: ROLE_ADMIN }                    # create (POST) — только admin
+        - { path: ^/api/v1/users/, roles: ROLE_USER }  # get/patch/delete, но delete не сработает, т.к. будет ограничен Voter-ом
+        - { path: ^/api/v1/task-executions, roles: ROLE_STUDENT, methods: [GET] }
+        - { path: ^/api/v1/task-executions, roles: ROLE_TEACHER, methods: [POST, PATCH] }
+        - { path: ^/api/v1/, roles: ROLE_STUDENT, methods: [GET] }
+        - { path: ^/api/v1/, roles: ROLE_TEACHER, methods: [POST, PATCH, DELETE] }
+
+when@dev:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\InMemoryUser:
+                algorithm: bcrypt
+                cost: 4
+        providers:
+            # In-memory пользователи для Basic Auth в dev среде
+            dev_memory:
+                memory:
+                    users:
+                        dev_student: { password: '$2y$13$DA2O5O48ECtKYXZQ4MEMAeBlsclwNAJVL7//P.SVwRTnMQ.FHTh2q', roles: ['ROLE_STUDENT'] }
+                        dev_teacher: { password: '$2y$13$DA2O5O48ECtKYXZQ4MEMAeBlsclwNAJVL7//P.SVwRTnMQ.FHTh2q', roles: ['ROLE_TEACHER'] }
+                        dev_admin:   { password: '$2y$13$DA2O5O48ECtKYXZQ4MEMAeBlsclwNAJVL7//P.SVwRTnMQ.FHTh2q', roles: ['ROLE_ADMIN'] }
+            # Можно продолжать авторизовываться пользователями из БД
+            dev_chain:
+                chain:
+                    providers: [users_in_database, dev_memory]
+        firewalls:
+            main:
+                provider: dev_chain
+                http_basic:
+                    realm: "Dev API"
+
+when@test:
+    security:
+        password_hashers:
+            # By default, password hashers are resource intensive and take time. This is
+            # important to generate secure password hashes. In tests however, secure hashes
+            # are not important, waste resources and increase test times. The following
+            # reduces the work factor to the lowest possible values.
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4 # Lowest possible value for bcrypt
+                time_cost: 3 # Lowest possible value for argon
+                memory_cost: 10 # Lowest possible value for argon

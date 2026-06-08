@@ -1,0 +1,116 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: deploy/dev/docker/Dockerfile
+      args:
+        CONTAINER_EXEC_USER_ID: "${CONTAINER_EXEC_USER_ID:-1000}"
+        CONTAINER_EXEC_GROUP_ID: "${CONTAINER_EXEC_GROUP_ID:-1000}"
+    environment:
+      APP_ENV: dev
+      XDEBUG_TRIGGER: 1
+      XDEBUG_MODE: 'develop,debug'
+      PHP_IDE_CONFIG: 'serverName=0.0.0.0'
+    volumes: !override
+      - ./:/app:delegated
+      - composer_cache:/var/cache/composer
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+  nginx:
+    ports:
+      - '7777:80'
+    networks: !override
+      - internal
+
+  postgres:
+    ports:
+      - '15433:5432'
+
+  rabbitmq:
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    networks: !override
+      - internal
+
+#  elasticsearch:
+#    ports:
+#      - '9200:9200'
+#
+#  kibana:
+#    ports:
+#      - '5601:5601'
+
+  redis_commander:
+    image: 'ghcr.io/joeferner/redis-commander:0.8.0'
+    container_name: "${APP_NAME}-redis-commander"
+    profiles: [app]
+    ports:
+      - '8081:8081'
+    environment:
+      REDIS_HOSTS: 'local:redis:6379'
+    depends_on:
+      redis:
+        condition: 'service_healthy'
+    networks:
+      - internal
+
+#  elasticsearch:
+#    image: 'docker.elastic.co/elasticsearch/elasticsearch:9.2.0'
+#    environment:
+#      discovery.type: 'single-node'
+#      xpack.security.enabled: 'false'
+#      ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+#    ports:
+#      - '9200:9200'
+#    volumes:
+#      - 'es_data:/usr/share/elasticsearch/data'
+#    healthcheck:
+#      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 30
+#
+#  kibana:
+#    image: 'docker.elastic.co/kibana/kibana:9.2.0'
+#    ports:
+#      - '5601:5601'
+#    environment:
+#      ELASTICSEARCH_HOSTS: 'http://elasticsearch:9200'
+#    depends_on:
+#      elasticsearch:
+#        condition: 'service_healthy'
+#    healthcheck:
+#      test: ["CMD-SHELL", "curl -sf http://localhost:5601/api/status"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 30
+#
+#  kibana-init:
+#    image: 'alpine/curl'
+#    restart: 'no'
+#    depends_on:
+#      kibana:
+#        condition: 'service_healthy'
+#    command: sh /kibana-init.sh
+#    volumes:
+#      - './docker/kibana-init.sh:/kibana-init.sh:ro'
+
+networks:
+  internal:
+    name: "${APP_NAME}-internal"
+    driver: bridge
+    external: false
+  traefik:
+    name: "${APP_NAME}-traefik-local"
+    driver: bridge
+    external: false
+
+volumes:
+  postgres_data: !override
+    external: false
+  composer_cache: !override
+    external: false
+#  elasticsearch_data: !override
+#    external: false

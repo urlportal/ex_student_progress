@@ -1,0 +1,10 @@
+controllers:
+    resource:
+        path: ../src/Presentation/HTTP/
+        namespace: App\Presentation\HTTP
+    type: attribute
+
+# Обрабатывается Security firewall (json_login)
+api_auth_token:
+    path: /api/auth/token
+    methods: [POST]

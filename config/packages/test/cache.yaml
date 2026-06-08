@@ -1,0 +1,6 @@
+framework:
+    cache:
+        app: cache.adapter.array
+        pools:
+            aggregation_cache: null
+            lists_cache: null

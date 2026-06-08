@@ -1,0 +1,219 @@
+services:
+
+  # ИНФРАСТРУКТУРА (profile: infra)
+  # Запускаются один раз при первом деплое и живут постоянно.
+
+  postgres:
+    profiles: [infra, app]
+    image: 'postgres:18.1-bookworm'
+    container_name: "${APP_NAME}-postgres"
+    restart: always
+    environment:
+      POSTGRES_DB: "${DB_NAME:-srv_student_progress}"
+      POSTGRES_USER: "${DB_USER:-postgres}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-postgres}"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - internal
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}" ]
+      interval: 8s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    profiles: [infra, app]
+    image: 'redis:7.0.9-alpine'
+    container_name: "${APP_NAME}-redis"
+    restart: always
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+
+  rabbitmq:
+    profiles: [infra, app]
+    image: 'rabbitmq:3.13-management'
+    container_name: "${APP_NAME}-rabbitmq"
+    hostname: "${APP_NAME}-rabbit"
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - './deploy/prod/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro'
+      - './deploy/prod/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro'
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - traefik
+      - internal
+
+  # blue/green
+  # SLOT и APP_NAME подставляются deploy-скриптом через --env-file.
+
+  app:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: deploy/prod/docker/Dockerfile
+      args:
+        CONTAINER_EXEC_USER_ID: "${CONTAINER_EXEC_USER_ID:-1000}"
+        CONTAINER_EXEC_GROUP_ID: "${CONTAINER_EXEC_GROUP_ID:-1000}"
+    container_name: "${APP_NAME}-${SLOT}-app"
+    restart: unless-stopped
+    environment:
+      APP_ENV: prod
+      COMPOSER_CACHE_DIR: /var/cache/composer
+    volumes:
+      - ./:/app:delegated
+      - ${DEPLOY_DIR}/releases/shared/.env.prod:/app/.env.prod:ro
+      - ${DEPLOY_DIR}/releases/shared/jwt:/app/config/jwt
+      - composer_cache:/var/cache/composer
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: 'service_healthy'
+      rabbitmq:
+        condition: 'service_healthy'
+      redis:
+        condition: 'service_healthy'
+    networks:
+      - internal
+
+  nginx:
+    profiles: [app]
+    image: 'nginx:1.20-alpine'
+    container_name: "${APP_NAME}-${SLOT}-nginx"
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prod/nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./:/app:delegated
+    networks:
+      - traefik
+      - internal
+
+  # Сервисы для тестов
+
+  test_app:
+    profiles: [app_test]
+    build:
+      context: .
+      dockerfile: deploy/prod/docker/Dockerfile
+      args:
+        CONTAINER_EXEC_USER_ID: "${CONTAINER_EXEC_USER_ID:-1000}"
+        CONTAINER_EXEC_GROUP_ID: "${CONTAINER_EXEC_GROUP_ID:-1000}"
+    container_name: "${APP_NAME}-test-app"
+    environment:
+      APP_ENV: test
+      COMPOSER_CACHE_DIR: /var/cache/composer
+      DB_NAME: ${TESTING_DB_NAME}
+      DB_USER: ${TESTING_DB_USER}
+      DB_PASSWORD: ${TESTING_DB_PASSWORD}
+      DB_HOST: test_postgres
+    volumes:
+      - ./:/app:delegated
+      - ${DEPLOY_DIR}/releases/shared/.env.test:/app/.env.test:ro
+      - composer_cache:/var/cache/composer
+    working_dir: /app
+    depends_on:
+      test_postgres:
+        condition: 'service_healthy'
+    networks:
+      - test_internal
+
+  test_postgres:
+    profiles: [app_test]
+    image: 'postgres:18.1-bookworm'
+    container_name: "${APP_NAME}-test-postgres"
+    environment:
+      POSTGRES_DB: ${TESTING_DB_NAME}
+      POSTGRES_USER: ${TESTING_DB_USER}
+      POSTGRES_PASSWORD: ${TESTING_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TESTING_DB_USER}"]
+      interval: 8s
+      timeout: 5s
+      retries: 10
+    networks:
+      - test_internal
+
+#  elasticsearch:
+#    profiles: [infra, app]
+#    image: 'docker.elastic.co/elasticsearch/elasticsearch:9.2.0'
+#    container_name: "${APP_NAME}-elasticsearch"
+#    environment:
+#      discovery.type: 'single-node'
+#      xpack.security.enabled: 'false'
+#      ES_JAVA_OPTS: '-Xms256m -Xmx256m'
+#    volumes:
+#      - 'elasticsearch_data:/usr/share/elasticsearch/data'
+#    healthcheck:
+#      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 30
+#
+#  kibana:
+#    profiles: [infra, app]
+#    image: 'docker.elastic.co/kibana/kibana:9.2.0'
+#    container_name: "${APP_NAME}-kibana"
+#    environment:
+#      ELASTICSEARCH_HOSTS: 'http://elasticsearch:9200'
+#      NODE_OPTIONS: '--max-old-space-size=256'
+#    depends_on:
+#      elasticsearch:
+#        condition: 'service_healthy'
+#    healthcheck:
+#      test: ["CMD-SHELL", "curl -sf http://localhost:5601/api/status"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 30
+#
+#  kibana-init:
+#    profiles: [infra, app]
+#    image: 'alpine/curl'
+#    container_name: "${APP_NAME}-kibana-init"
+#    restart: 'no'
+#    depends_on:
+#      kibana:
+#        condition: 'service_healthy'
+#    command: sh /kibana-init.sh
+#    volumes:
+#      - './deploy/prod/kibana/kibana-init.sh:/kibana-init.sh:ro'
+
+networks:
+  # Сеть для приложения и инфраструктуры
+  internal:
+    name: "${APP_NAME}-internal"
+    external: true
+    driver: bridge
+
+  # Сеть Traefik
+  traefik:
+    name: "${TRAEFIK_NETWORK}"
+    external: true
+
+  # Сеть для тестов
+  test_internal:
+    name: "${APP_NAME}-test-internal"
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: "${VOLUME_NAME_POSTGRES_DATA}"
+    external: true
+  composer_cache:
+    name: "${VOLUME_NAME_COMPOSER_CACHE}"
+    external: true
+#  elasticsearch_data:
+#    name: "${VOLUME_NAME_ELASTICSEARCH_DATA}"
+#    external: true
