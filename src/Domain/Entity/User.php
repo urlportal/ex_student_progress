@@ -4,7 +4,6 @@ namespace App\Domain\Entity;
 
 use App\Domain\Enum\UserRole;
 use App\Domain\Trait\Timestamps;
-use App\Infrastructure\Persistence\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -12,7 +11,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Uid\UuidV7;
 
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Entity(repositoryClass: UserRepository::class)]
+#[ORM\Entity]
 #[ORM\Table(name: '"user"')]
 #[ORM\UniqueConstraint(name: 'user_id_unique', columns: ['email'])]
 class User implements UserInterface, PasswordAuthenticatedUserInterface

@@ -3,12 +3,11 @@
 namespace App\Domain\Entity;
 
 use App\Domain\Trait\Timestamps;
-use App\Infrastructure\Persistence\Repository\AggStudentModuleRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Entity(repositoryClass: AggStudentModuleRepository::class)]
+#[ORM\Entity]
 #[ORM\Index(name: 'agg_student_module_student_id_idx', columns: ['student_id'])]
 #[ORM\Index(name: 'agg_student_module_module_id_idx', columns: ['module_id'])]
 #[ORM\UniqueConstraint(

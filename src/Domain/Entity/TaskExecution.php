@@ -3,12 +3,11 @@
 namespace App\Domain\Entity;
 
 use App\Domain\Trait\Timestamps;
-use App\Infrastructure\Persistence\Repository\TaskExecutionRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Entity(repositoryClass: TaskExecutionRepository::class)]
+#[ORM\Entity]
 #[ORM\UniqueConstraint(name: 'task_execution_user_task_unique', columns: ['user_id', 'task_id'])]
 #[ORM\Index(name: 'task_execution_user_id_idx', columns: ['user_id'])]
 #[ORM\Index(name: 'task_execution_task_id_idx', columns: ['task_id'])]

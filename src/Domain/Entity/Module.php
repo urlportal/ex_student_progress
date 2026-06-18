@@ -3,14 +3,13 @@
 namespace App\Domain\Entity;
 
 use App\Domain\Trait\Timestamps;
-use App\Infrastructure\Persistence\Repository\ModuleRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Entity(repositoryClass: ModuleRepository::class)]
+#[ORM\Entity]
 #[ORM\Index('module_course_id_idx', ['course_id'])]
 class Module
 {

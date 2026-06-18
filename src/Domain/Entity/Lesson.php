@@ -3,14 +3,13 @@
 namespace App\Domain\Entity;
 
 use App\Domain\Trait\Timestamps;
-use App\Infrastructure\Persistence\Repository\LessonRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Entity(repositoryClass: LessonRepository::class)]
+#[ORM\Entity]
 #[ORM\Index('lesson_sort_idx', ['sort'])]
 #[ORM\Index('lesson_course_id_idx', ['course_id'])]
 #[ORM\Index('lesson_module_id_idx', ['module_id'])]

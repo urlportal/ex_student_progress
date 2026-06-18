@@ -11,8 +11,8 @@ use App\Domain\Entity\User;
 use App\Domain\Enum\UserRole;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 

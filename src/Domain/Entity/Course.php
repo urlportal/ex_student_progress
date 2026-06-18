@@ -3,14 +3,13 @@
 namespace App\Domain\Entity;
 
 use App\Domain\Trait\Timestamps;
-use App\Infrastructure\Persistence\Repository\CourseRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Entity(repositoryClass: CourseRepository::class)]
+#[ORM\Entity]
 #[ORM\UniqueConstraint(name: 'course_title_unique', columns: ['title'])]
 class Course
 {

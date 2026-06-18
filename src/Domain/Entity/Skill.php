@@ -3,13 +3,12 @@
 namespace App\Domain\Entity;
 
 use App\Domain\Trait\Timestamps;
-use App\Infrastructure\Persistence\Repository\SkillRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Entity(repositoryClass: SkillRepository::class)]
+#[ORM\Entity]
 #[ORM\UniqueConstraint(name: 'skill_title_unique', columns: ['title'])]
 class Skill
 {
