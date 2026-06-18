@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Application\Service;
+namespace App\Infrastructure\Fixtures;
 
 use App\Domain\Entity\Course;
 use App\Domain\Entity\Lesson;

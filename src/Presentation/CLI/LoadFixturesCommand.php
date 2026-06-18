@@ -2,7 +2,7 @@
 
 namespace App\Presentation\CLI;
 
-use App\Application\Service\FixtureLoaderService;
+use App\Infrastructure\Fixtures\FixtureLoaderService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
